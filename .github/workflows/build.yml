@@ -8,33 +8,39 @@ on:
 
 jobs:
   build:
+    name: Build Jurnali Man APK
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Гирифтани repository
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Пайдо кардан ва кушодани ZIP
-      - name: Extract project ZIP
+      - name: Find project ZIP
         shell: bash
         run: |
           set -e
 
-          mkdir -p project
-
           ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: ZIP file not found!"
+            echo "ERROR: Project ZIP not found."
             exit 1
           fi
 
-          echo "ZIP found: $ZIP_FILE"
+          echo "Project ZIP: $ZIP_FILE"
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Extract project
+        shell: bash
+        run: |
+          set -e
+
+          rm -rf project
+          mkdir -p project
 
           unzip -o "$ZIP_FILE" -d project
 
-          echo "Searching Android project..."
+          echo "Searching for Android project..."
 
           PROJECT_DIR=$(find project -type f -name "settings.gradle" -printf '%h\n' | head -n 1)
 
@@ -43,47 +49,49 @@ jobs:
           fi
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Android project not found!"
-            find project -maxdepth 5 -type f
+            echo "ERROR: settings.gradle not found."
+            find project -maxdepth 6 -type f
             exit 1
           fi
 
-          echo "Project directory:"
-          echo "$PROJECT_DIR"
-
+          echo "Android project directory: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      # 3. Java 17
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 4. Gradle
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
-      # 5. Санҷиши файлҳои Android
       - name: Check Android project
         shell: bash
         run: |
           set -e
 
-          echo "Checking project..."
+          test -d "$PROJECT_DIR/app"
 
-          test -f "$PROJECT_DIR/app/build.gradle" || \
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          if [ -f "$PROJECT_DIR/app/build.gradle" ]; then
+            echo "Found app/build.gradle"
+          elif [ -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
+            echo "Found app/build.gradle.kts"
+          else
+            echo "ERROR: app/build.gradle not found."
+            exit 1
+          fi
 
-          test -f "$PROJECT_DIR/AndroidManifest.xml" || \
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          if [ ! -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml" ]; then
+            echo "ERROR: AndroidManifest.xml not found."
+            exit 1
+          fi
 
-          echo "Android project is OK."
+          echo "Android project check passed."
 
-      # 6. Build APK
-      - name: Build APK
+      - name: Build Debug APK
         shell: bash
         run: |
           set -e
@@ -97,7 +105,6 @@ jobs:
             gradle assembleDebug --no-daemon --stacktrace
           fi
 
-      # 7. Пайдо кардани APK
       - name: Find APK
         shell: bash
         run: |
@@ -109,19 +116,18 @@ jobs:
             | head -n 1)
 
           if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK was not created!"
+            echo "ERROR: APK was not created."
             exit 1
           fi
 
-          echo "APK found:"
+          echo "APK created successfully:"
           ls -lh "$APK_FILE"
 
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
 
-      # 8. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Jurnali-Man-V3-APK
+          name: Jurnali-Man-V4-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
