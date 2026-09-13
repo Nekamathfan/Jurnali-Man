@@ -3,20 +3,22 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract project ZIP
+      - name: Extract fixed project
         run: |
-          mkdir -p project
-          unzip -o -q Jurnali_Man_GitHub.zip -d project || true
+          rm -rf project
+          mkdir project
+          unzip -o -q Jurnali_Man_GitHub_FIXED.zip -d project
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -29,9 +31,10 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Build APK
+      - name: Build Debug APK
         working-directory: project
-        run: gradle :app:assembleDebug --no-daemon
+        run: |
+          gradle :app:assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
